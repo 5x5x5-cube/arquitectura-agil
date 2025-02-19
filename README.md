@@ -51,3 +51,8 @@ Para agregar una nueva aplicación:
 - Cada aplicación gestiona sus propias dependencias mediante requirements.txt
 - Seguir las guías de estilo PEP 8
 - Escribir pruebas para las nuevas funcionalidades
+## Ejecutar todos los microservicios
+ ```bash
+   docker-compose up --build -d
+   ```
+
