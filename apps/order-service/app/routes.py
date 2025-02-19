@@ -19,3 +19,7 @@ def create_order():
 def get_orders():
     orders = Order.query.all()
     return jsonify([{"id": o.id, "date": o.date, "product": o.product} for o in orders])
+
+@api_bp.route("/health", methods=["GET"])
+def health():
+    return jsonify({"message":"Service orders is OK"})

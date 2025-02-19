@@ -10,9 +10,8 @@ def get_system_health():
 
     # List of services to check
     services = {
-        'Service A': os.getenv('SERVICE_A_URL', 'http://service-a/health'),
-        'Service B': os.getenv('SERVICE_B_URL', 'http://service-b/health'),
-        'Service C': os.getenv('SERVICE_C_URL', 'http://service-c/health'),
+        'Order Service': os.getenv('ORDERS', 'http://order-service:5000/health'),
+        'Inventory Service': os.getenv('INVENTORY', 'http://inventory-service:5000/health'),
     }
 
     for service_name, url in services.items():
