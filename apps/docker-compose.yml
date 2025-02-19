@@ -33,7 +33,7 @@ services:
 
   inventory-service:
     build: ./inventory-service
-    container_name: inventory-service
+    container_name: inventory_service
     restart: always
     depends_on:
       - db
