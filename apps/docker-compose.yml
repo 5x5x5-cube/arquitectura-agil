@@ -38,6 +38,7 @@ services:
     depends_on:
       - db
     environment:
+      - DATABASE_URL=postgresql://admin:orders@db:5432/orders
       - FLASK_APP=app
       - FLASK_ENV=development
       - INVENTORY_SERVICE_URL=http://inventory-service:5000
