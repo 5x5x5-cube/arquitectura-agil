@@ -48,8 +48,13 @@ def validate_token_endpoint():
     # Validate token and check roles
     payload = validate_token_and_roles(token, allowed_roles)
     
+    
     if not payload:
-        return jsonify({'valid': False, 'error': 'Invalid token or insufficient permissions'}), 401
+        return jsonify({'valid': False, 'error': 'Invalid token'}), 401
+    
+    # Check if payload contains an 'invalid_role' flag
+    if payload.get('invalid_role', False):
+        return jsonify({'valid': False, 'error': 'Insufficient permissions'}), 403
     
     # Return the validated token payload with a valid flag
     response_data = {'valid': True, 'user_id': payload['sub'], 'username': payload['username']}

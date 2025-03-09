@@ -39,7 +39,7 @@ def validate_token(token):
     except jwt.InvalidTokenError:
         return None  # Invalid token
 
-def validate_token_and_roles(token, allowed_roles):
+def validate_token_and_roles(token, allowed_roles) -> dict | None:
     """
     Validates a token and checks if the user has any of the allowed roles
     
@@ -48,11 +48,12 @@ def validate_token_and_roles(token, allowed_roles):
         allowed_roles (list): List of roles that are allowed to access the resource
         
     Returns:
-        dict: The decoded token if valid and has proper roles, None otherwise
+        dict: The decoded token if valid and has proper roles, 
+              The decoded token with invalid_role=True if valid but insufficient roles,
+              None if the token is invalid
     """
     # Validate the token first
     payload = validate_token(token)
-    print('payload', payload)
     if not payload:
         return None
     
@@ -68,4 +69,6 @@ def validate_token_and_roles(token, allowed_roles):
         return payload
     
     # User doesn't have any of the required roles
-    return None
+    # Return the payload with invalid_role flag
+    payload['invalid_role'] = True
+    return payload

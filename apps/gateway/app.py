@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from monitor import get_system_health
-from security.auth import authenticate, validate_token
+from security.auth import authenticate, validate_token, roles_required
 
 app = Flask(__name__)
 
@@ -27,6 +27,18 @@ def token_validation():
         
     # Validate token and check roles
     return validate_token(data['token'], data['allowed_roles'])
+
+# Example of a protected route using the decorator
+@app.route('/protected-admin', methods=['GET'])
+@roles_required(['admin'])
+def protected_admin():
+    return jsonify({"message": "This is a protected endpoint for admins only"})
+
+# Example with multiple allowed roles
+@app.route('/protected-user', methods=['GET'])
+@roles_required(['user'])
+def protected_user():
+    return jsonify({"message": "This endpoint is accessible to users and admins"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5002, debug=True)

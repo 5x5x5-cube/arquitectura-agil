@@ -1,5 +1,6 @@
 import requests
-from flask import Response, jsonify
+from flask import Response, jsonify, request
+from functools import wraps
 
 # Security service endpoint
 SECURITY_SERVICE = 'http://localhost:5001'
@@ -49,3 +50,35 @@ def validate_token(token, allowed_roles):
         )
     except requests.exceptions.ConnectionError:
         return jsonify({"error": "Security service unavailable"}), 503
+
+def roles_required(allowed_roles):
+    """
+    Decorator that checks if the user has any of the required roles
+    
+    Args:
+        allowed_roles (list): List of roles that are allowed to access the route
+    
+    Returns:
+        Function: Decorated function that checks authorization
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Get token from Authorization header
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return jsonify({"error": "Authorization header missing or invalid"}), 401
+            
+            token = auth_header.split(' ')[1]
+            
+            # Validate token and check roles
+            validation_response = validate_token(token, allowed_roles)
+            
+            # If validation failed, return the error response
+            if validation_response.status_code != 200:
+                return validation_response
+                
+            # If valid, proceed with the original route function
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
