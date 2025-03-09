@@ -1,9 +1,13 @@
 import requests
 from flask import Response, jsonify, request
 from functools import wraps
+from logger import Logger
 
 # Security service endpoint
 SECURITY_SERVICE = 'http://localhost:5001'
+
+# Initialize logger
+logger = Logger("gateway_auth.log")
 
 def authenticate(auth_data):
     """
@@ -17,12 +21,19 @@ def authenticate(auth_data):
     """
     try:
         response = requests.post(f"{SECURITY_SERVICE}/auth", json=auth_data)
+        if response.status_code != 200:
+            logger.error("Authentication failed via gateway", 
+                         {"username": auth_data.get('username'), 
+                          "status_code": response.status_code,
+                          "ip": request.remote_addr})
         return Response(
             response.content,
             status=response.status_code,
             content_type=response.headers['Content-Type']
         )
     except requests.exceptions.ConnectionError:
+        logger.error("Security service unavailable during authentication", 
+                     {"ip": request.remote_addr})
         return jsonify({"error": "Security service unavailable"}), 503
 
 def validate_token(token, allowed_roles):
@@ -43,12 +54,20 @@ def validate_token(token, allowed_roles):
             json={"token": token, "allowed_roles": allowed_roles}
         )
         
+        if response.status_code != 200:
+            logger.error("Token validation failed via gateway", 
+                        {"allowed_roles": allowed_roles, 
+                         "status_code": response.status_code,
+                         "ip": request.remote_addr})
+        
         return Response(
             response.content,
             status=response.status_code,
             content_type=response.headers['Content-Type']
         )
     except requests.exceptions.ConnectionError:
+        logger.error("Security service unavailable during token validation", 
+                    {"ip": request.remote_addr})
         return jsonify({"error": "Security service unavailable"}), 503
 
 def roles_required(allowed_roles):
@@ -67,6 +86,10 @@ def roles_required(allowed_roles):
             # Get token from Authorization header
             auth_header = request.headers.get('Authorization')
             if not auth_header or not auth_header.startswith('Bearer '):
+                logger.error("Authorization failed: Missing or invalid header", 
+                           {"ip": request.remote_addr, 
+                            "path": request.path,
+                            "required_roles": allowed_roles})
                 return jsonify({"error": "Authorization header missing or invalid"}), 401
             
             token = auth_header.split(' ')[1]
@@ -76,6 +99,17 @@ def roles_required(allowed_roles):
             
             # If validation failed, return the error response
             if validation_response.status_code != 200:
+                if validation_response.status_code == 403:
+                    logger.error("Authorization failed: Insufficient permissions", 
+                               {"ip": request.remote_addr, 
+                                "path": request.path,
+                                "required_roles": allowed_roles})
+                    
+                elif validation_response.status_code == 401:
+                    logger.error("Authorization failed: Invalid token", 
+                               {"ip": request.remote_addr, 
+                                "path": request.path})
+
                 return validation_response
                 
             # If valid, proceed with the original route function
