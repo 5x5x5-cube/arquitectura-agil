@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from auth import authenticate_user, generate_token, validate_token_and_roles
+from auth import authenticate_user, generate_token, validate_token_and_roles, validate_token
 from models import db, init_db
 from config import Config
 import os
@@ -64,6 +64,32 @@ def validate_token_endpoint():
         response_data['roles'] = payload['roles']
         
     return jsonify(response_data)
+
+@app.route('/token-payload', methods=['POST'])
+def get_token_payload():
+    """Endpoint that returns the decoded token payload"""
+    # Get token from request - either from JSON body or Authorization header
+    token = None
+    data = request.get_json()
+    
+    if data and 'token' in data:
+        token = data['token']
+    else:
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+    
+    if not token:
+        return jsonify({'error': 'Missing token. Provide it in request body or Authorization header'}), 400
+    
+    # Validate the token
+    payload = validate_token(token)
+    
+    if not payload:
+        return jsonify({'error': 'Invalid or expired token'}), 401
+    
+    # Return the token payload
+    return jsonify({'payload': payload})
 
 @app.before_request
 def create_tables():
