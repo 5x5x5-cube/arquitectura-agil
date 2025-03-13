@@ -1,10 +1,11 @@
 import requests
+import os
 from flask import Response, jsonify, request
 from functools import wraps
 from logger import Logger
 
-# Security service endpoint
-SECURITY_SERVICE = 'http://localhost:5001'
+# Security service endpoint from environment variable
+SECURITY_SERVICE = os.environ.get("SECURITY_SERVICE", "http://localhost:5001")
 
 # Initialize logger
 logger = Logger("gateway_auth.log")
@@ -70,6 +71,38 @@ def validate_token(token, allowed_roles):
                     {"ip": request.remote_addr})
         return jsonify({"error": "Security service unavailable"}), 503
 
+def get_token_payload(token):
+    """
+    Retrieves the decoded payload of a JWT token by calling the security service
+    
+    Args:
+        token (str): The authentication token to decode
+        
+    Returns:
+        Flask Response object with the token payload
+    """
+    try:
+        # Call the security service to get the token payload
+        response = requests.post(
+            f"{SECURITY_SERVICE}/token-payload", 
+            json={"token": token}
+        )
+        
+        if response.status_code != 200:
+            logger.error("Failed to decode token via gateway", 
+                        {"status_code": response.status_code,
+                         "ip": request.remote_addr})
+        
+        return Response(
+            response.content,
+            status=response.status_code,
+            content_type=response.headers['Content-Type']
+        )
+    except requests.exceptions.ConnectionError:
+        logger.error("Security service unavailable during token decoding", 
+                    {"ip": request.remote_addr})
+        return jsonify({"error": "Security service unavailable"}), 503
+
 def roles_required(allowed_roles):
     """
     Decorator that checks if the user has any of the required roles
@@ -111,6 +144,29 @@ def roles_required(allowed_roles):
                                 "path": request.path})
 
                 return validation_response
+            
+            # If validation is successful and 'user' role is in allowed_roles
+            if 'user' in allowed_roles:
+                # Get token payload
+                payload_response = get_token_payload(token)
+                
+                # If payload retrieval is successful
+                if payload_response.status_code == 200:
+                    try:
+                        # Extract payload data
+                        payload_data = payload_response.get_json()
+                        if payload_data and 'payload' in payload_data and 'sub' in payload_data['payload'] and 'user' in payload_data['payload']['roles']:
+                            # Add userId to request headers
+                            user_id = payload_data['payload']['sub']
+                            # Flask's request object doesn't allow directly modifying headers
+                            # So we add it to an internal attribute that can be accessed later
+                            if not hasattr(request, 'userId'):
+                                setattr(request, 'userId', user_id)
+                            logger.info(f"Added userId header: {user_id}", 
+                                      {"path": request.path})
+                    except Exception as e:
+                        logger.error(f"Error extracting user ID from token payload: {str(e)}", 
+                                    {"path": request.path})
                 
             # If valid, proceed with the original route function
             return f(*args, **kwargs)
